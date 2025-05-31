@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PeerJS Chat & Video</title>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h2, h3 {
+      color: #2c3e50;
+      margin-top: 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      background-color: #3498db;
+      border: none;
+      color: white;
+      padding: 10px 16px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    #chat, #video-section {
+      margin-top: 30px;
+    }
+
+    #messages {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 150px;
+      overflow-y: scroll;
+      background: #f0f0f0;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      margin-bottom: 8px;
+    }
+
+    .video-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 15px;
+      justify-content: space-between;
+    }
+
+    .video-box {
+      flex: 1 1 45%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    video {
+      width: 100%;
+      height: auto;
+      max-height: 200px;
+      border-radius: 8px;
+      background-color: black;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .video-wrapper {
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .video-box {
+        flex: 1 1 100%;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      input[type="text"] {
+        padding: 12px;
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Your Peer ID: <span id="my-id">Loading...</span></h2>
+
+    <label for="connect-to-id">Connect to Peer ID:</label>
+    <input type="text" id="connect-to-id" placeholder="Enter peer ID to connect" />
+    <button onclick="connectToPeer()">Connect</button>
+
+    <div id="chat" style="display:none;">
+      <h3>Chat</h3>
+      <div id="messages"></div>
+      <input type="text" id="message-input" placeholder="Type a message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div id="video-section" style="display:none;">
+      <h3>Video Call</h3>
+      <div class="btn-group">
+        <button onclick="startCall()">Start Video Call</button>
+        <button onclick="endCall()">End Call</button>
+      </div>
+      <div class="video-wrapper">
+        <div class="video-box">
+          <p><strong>You</strong></p>
+          <video id="local-video" autoplay muted playsinline></video>
+        </div>
+        <div class="video-box">
+          <p><strong>Peer</strong></p>
+          <video id="remote-video" autoplay playsinline></video>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let conn, call;
+    let localStream;
+    const peer = new Peer(undefined, {
+      host: location.hostname,
+      port: 9000,
+      path: '/peerjs',
+    });
+
+    peer.on('open', (id) => {
+      document.getElementById('my-id').textContent = id;
+    });
+
+    peer.on('connection', (connection) => {
+      conn = connection;
+      setupConnection();
+    });
+
+    peer.on('call', (incomingCall) => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          localStream = stream;
+          document.getElementById('local-video').srcObject = stream;
+
+          incomingCall.answer(stream);
+          call = incomingCall;
+
+          call.on('stream', (remoteStream) => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+
+          document.getElementById('video-section').style.display = 'block';
+        })
+        .catch(console.error);
+    });
+
+    function connectToPeer() {
+      const peerId = document.getElementById('connect-to-id').value;
+      conn = peer.connect(peerId);
+      conn.on('open', setupConnection);
+    }
+
+    function setupConnection() {
+      document.getElementById('chat').style.display = 'block';
+      document.getElementById('video-section').style.display = 'block';
+
+      conn.on('data', (data) => {
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.innerHTML += `<div class="message"><strong>Peer:</strong> ${data}</div>`;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      });
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('message-input');
+      const msg = input.value;
+      if (msg && conn && conn.open) {
+        conn.send(msg);
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.innerHTML += `<div class="message"><strong>You:</strong> ${msg}</div>`;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        input.value = '';
+      }
+    }
+
+    function startCall() {
+      const peerId = document.getElementById('connect-to-id').value;
+
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          localStream = stream;
+          document.getElementById('local-video').srcObject = stream;
+
+          call = peer.call(peerId, stream);
+          call.on('stream', (remoteStream) => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+        })
+        .catch(console.error);
+    }
+
+    function endCall() {
+      if (call) {
+        call.close();
+        call = null;
+      }
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+        localStream = null;
+      }
+      document.getElementById('local-video').srcObject = null;
+      document.getElementById('remote-video').srcObject = null;
+    }
+  </script>
+</body>
+</html>

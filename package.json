@@ -1,0 +1,16 @@
+{
+  "name": "peerjs-server",
+  "version": "1.0.0",
+  "description": "PeerJS server with Express",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "peer": "^1.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
