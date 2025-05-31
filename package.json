@@ -4,7 +4,8 @@
   "description": "PeerJS server with Express",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^5.1.0",
