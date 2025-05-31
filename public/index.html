@@ -171,6 +171,7 @@
       host: location.hostname,
       port: 9000,
       path: '/peerjs',
+      secure: location.protocol === 'https:',
     });
 
     peer.on('open', (id) => {
